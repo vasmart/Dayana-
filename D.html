@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Universo Dayana</title>
+    
+    <!-- GSAP para animaciones -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    
+    <!-- Mapa de importación de módulos ES6 -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            outline: none;
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #d884ff;
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            pointer-events: none;
+            z-index: 10;
+            transition: opacity 1s ease;
+            text-shadow: 0 0 10px #d884ff;
+        }
+
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.9rem;
+            pointer-events: none;
+            z-index: 5;
+            opacity: 0;
+            transition: opacity 2s ease;
+        }
+
+        /* --- ESTILOS DEL MENÚ DE FRASES --- */
+        #menu-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(20, 0, 40, 0.8);
+            border: 1px solid #ff00ff;
+            color: #ff88ff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            z-index: 100;
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        #menu-toggle:hover {
+            background: rgba(40, 0, 80, 0.9);
+            box-shadow: 0 0 25px rgba(255, 0, 255, 0.8);
+            color: #ffffff;
+        }
+
+        #phrases-menu {
+            position: absolute;
+            top: 70px;
+            right: 20px;
+            width: 320px;
+            max-height: 70vh;
+            background: rgba(10, 0, 25, 0.9);
+            border: 1px solid #d884ff;
+            border-radius: 12px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 30px rgba(138, 43, 226, 0.5);
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        #phrases-menu.hidden {
+            opacity: 0;
+            transform: translateY(-10px);
+            pointer-events: none;
+        }
+
+        .menu-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid rgba(216, 132, 255, 0.3);
+            color: #ffffff;
+        }
+
+        .menu-header h3 {
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+        }
+
+        #close-menu {
+            cursor: pointer;
+            color: #ff88ff;
+            font-size: 1.2rem;
+            transition: color 0.2s;
+        }
+
+        #close-menu:hover {
+            color: #ffffff;
+        }
+
+        #phrases-list {
+            overflow-y: auto;
+            padding: 10px;
+            flex-grow: 1;
+        }
+
+        #phrases-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #phrases-list::-webkit-scrollbar-thumb {
+            background: rgba(216, 132, 255, 0.4);
+            border-radius: 3px;
+        }
+
+        .phrase-item {
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            color: #e0d0ff;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s, transform 0.2s, color 0.2s;
+        }
+
+        .phrase-item:hover {
+            background: rgba(216, 132, 255, 0.2);
+            color: #ffffff;
+            transform: translateX(4px);
+        }
+
+        /* --- TÍTULO PRINCIPAL FLOTANTE --- */
+        #main-title {
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ffffff;
+            font-size: 1.4rem;
+            font-weight: bold;
+            text-align: center;
+            letter-spacing: 1px;
+            z-index: 10;
+            pointer-events: none;
+            text-shadow: 0 0 10px #ff00ff, 0 0 20px #ff00ff, 0 0 30px #8a2be2;
+            animation: titlePulse 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes titlePulse {
+            0% {
+                opacity: 0.8;
+                text-shadow: 0 0 10px #ff00ff, 0 0 20px #ff00ff;
+            }
+            100% {
+                opacity: 1;
+                text-shadow: 0 0 15px #00ffff, 0 0 25px #ff00ff, 0 0 35px #8a2be2;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loading">Creando el universo...</div>
+    <div id="instructions">Arrastra para explorar • Usa la rueda para hacer zoom • Haz clic en el corazón o las frases</div>
+    <div id="main-title">Feliz día de la novia a la novia más hermosa del universo 💜</div>
+
+    <!-- Menú desplegable de frases -->
+    <div id="menu-toggle">🌌 Ver Frases</div>
+    <div id="phrases-menu" class="hidden">
+        <div class="menu-header">
+            <h3>Universo de Frases</h3>
+            <span id="close-menu">✕</span>
+        </div>
+        <div id="phrases-list"></div>
+    </div>
+
+    <!-- Script principal embebido -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        const canvas = document.createElement('canvas');
+        document.body.appendChild(canvas);
+
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x050015, 0.001);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+        camera.position.set(0, 100, 800);
+
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 600;
+        controls.minDistance = 20;
+        controls.enabled = false;
+
+        const renderScene = new RenderPass(scene, camera);
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.6, 0.3, 0.2);
+        const composer = new EffectComposer(renderer);
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
+
+        function createGalaxy() {
+            const starGeometry = new THREE.BufferGeometry();
+            const starCount = 8000;
+            const posArray = new Float32Array(starCount * 3);
+            const colorsArray = new Float32Array(starCount * 3);
+
+            for (let i = 0; i < starCount * 3; i += 3) {
+                const r = 200 + Math.random() * 800;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+
+                posArray[i] = r * Math.sin(phi) * Math.cos(theta);
+                posArray[i + 1] = r * Math.sin(phi) * Math.sin(theta);
+                posArray[i + 2] = r * Math.cos(phi);
+
+                const color = new THREE.Color();
+                const rand = Math.random();
+                if (rand < 0.3) color.setHex(0x00ffff);
+                else if (rand < 0.6) color.setHex(0xff00ff);
+                else if (rand < 0.9) color.setHex(0x8a2be2);
+                else color.setHex(0xffffff);
+
+                colorsArray[i] = color.r;
+                colorsArray[i + 1] = color.g;
+                colorsArray[i + 2] = color.b;
+            }
+
+            starGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            starGeometry.setAttribute('color', new THREE.BufferAttribute(colorsArray, 3));
+
+            const starMaterial = new THREE.PointsMaterial({
+                size: 1.5,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+
+            const stars = new THREE.Points(starGeometry, starMaterial);
+            scene.add(stars);
+            return stars;
+        }
+        const galaxy = createGalaxy();
+
+        const heartGroup = new THREE.Group();
+        scene.add(heartGroup);
+
+        const x = 0, y = 0;
+        const heartShape = new THREE.Shape();
+        heartShape.moveTo(x + 5, y + 5);
+        heartShape.bezierCurveTo(x + 5, y + 5, x + 4, y, x, y);
+        heartShape.bezierCurveTo(x - 6, y, x - 6, y + 7, x - 6, y + 7);
+        heartShape.bezierCurveTo(x - 6, y + 11, x - 3, y + 15.4, x + 5, y + 19);
+        heartShape.bezierCurveTo(x + 12, y + 15.4, x + 16, y + 11, x + 16, y + 7);
+        heartShape.bezierCurveTo(x + 16, y + 7, x + 16, y, x + 10, y);
+        heartShape.bezierCurveTo(x + 7, y, x + 5, y + 5, x + 5, y + 5);
+
+        const extrudeSettings = { depth: 3, bevelEnabled: true, bevelSegments: 5, steps: 2, bevelSize: 1, bevelThickness: 1 };
+        const heartGeometry = new THREE.ExtrudeGeometry(heartShape, extrudeSettings);
+        heartGeometry.center();
+        heartGeometry.rotateZ(Math.PI);
+        heartGeometry.scale(1.5, 1.5, 1.5);
+
+        const heartMaterial = new THREE.MeshPhysicalMaterial({
+            color: 0x9900ff,
+            emissive: 0x4a0080,
+            emissiveIntensity: 0.3,
+            metalness: 0.1,
+            roughness: 0.1,
+            transmission: 0.8,
+            thickness: 2,
+            clearcoat: 1.0,
+        });
+        const heartMesh = new THREE.Mesh(heartGeometry, heartMaterial);
+        heartMesh.userData = { isHeart: true };
+        heartGroup.add(heartMesh);
+
+        const heartLight = new THREE.PointLight(0xd884ff, 300, 300);
+        heartGroup.add(heartLight);
+
+        function createCentralTextSprite(message) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.shadowColor = '#ff00ff';
+            ctx.shadowBlur = 10;
+            ctx.font = 'bold 70px "Segoe UI", Arial, sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(message, canvas.width / 2, canvas.height / 2);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.minFilter = THREE.LinearFilter;
+            const material = new THREE.SpriteMaterial({ map: texture, transparent: true, blending: THREE.AdditiveBlending });
+            const sprite = new THREE.Sprite(material);
+            sprite.scale.set(45, 11, 1);
+            return sprite;
+        }
+
+        const centralNameFront = createCentralTextSprite('DAYANA');
+        centralNameFront.position.set(0, 0, 4);
+        heartGroup.add(centralNameFront);
+
+        const centralNameBack = createCentralTextSprite('DAYANA');
+        centralNameBack.position.set(0, 0, -4);
+        centralNameBack.rotation.y = Math.PI;
+        heartGroup.add(centralNameBack);
+
+        document.getElementById('loading').style.opacity = 0;
+        document.getElementById('instructions').style.opacity = 1;
+
+        gsap.to(camera.position, {
+            z: 150, y: 30, duration: 4, ease: "power2.inOut",
+            onComplete: () => { controls.enabled = true; }
+        });
+
+        const frases = [
+            "Mi niña linda", "Mi princesa", "Mi reina", "Mi amor", "Mi bebé", "BB", "Mi cielo", "Mi vida", "Mi todo", "Mi felicidad",
+            "Mi universo", "Mi inspiración", "Mi futura esposa", "Mi hermosa", "Mi angelito", "Mi consentida", "Mi corazón", "Mi razón de sonreír",
+            "Mi sueño", "Mi destino", "Mi hogar", "Mi alegría", "Mi paz", "Mi eternidad", "Siempre juntos", "Amor eterno", "Nuestro universo",
+            "Tú y yo", "Por siempre", "Te amo", "Te elegiría mil veces", "Mi persona favorita", "Mi dulce amor", "Mi razón de vivir",
+            "Mi hermosa Dayana", "Mi tesoro", "Mi joyita", "Mi luz", "Mi estrella", "Mi lunita", "Mi sol", "Mi flor", "Mi rosa bella",
+            "Mi preciosa", "Mi muñequita", "Mi cosita hermosa", "Mi chiquita", "Mi ternurita", "Mi dulzura", "Mi encanto", "Mi bendición",
+            "Mi milagro", "Mi mayor regalo", "Lo mejor de mi vida", "Mi ilusión", "Mi esperanza", "Mi sonrisa favorita", "Mi lugar seguro",
+            "Mi refugio", "Mi compañera de vida", "Mi compañera eterna", "Mi alma gemela", "Mi media naranja", "Mi otra mitad", "Mi amorcito",
+            "Mi reina hermosa", "Mi princesa hermosa", "Mi niña preciosa", "Mi cielo bonito", "Mi corazón bonito", "Mi bella dama",
+            "Mi reina preciosa", "Mi reina bella", "Eres mi todo", "Eres mi hogar", "Eres mi paz", "Eres mi felicidad", "Eres mi sueño hecho realidad",
+            "Eres mi milagro favorito", "Siempre serás tú", "Tú eres mi paraíso", "Mi amor infinito", "Mi infinito", "Mi hermosa casualidad",
+            "Mi destino favorito", "Mi razón de cada día", "Mi pensamiento favorito", "Mi primer pensamiento", "Mi último pensamiento",
+            "Mi para siempre", "Mi mañana", "Mi presente", "Mi futuro", "El amor de mi vida", "La mujer de mis sueños", "Mi única elección",
+            "Mi mayor felicidad", "Mi corazoncito lindo💜", "Para siempre, Dayana 💜"
+        ];
+
+        function createTextSprite(message) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.shadowColor = '#d884ff';
+            ctx.shadowBlur = 4;
+            ctx.font = 'bold 42px "Segoe UI", Arial, sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(message, canvas.width / 2, canvas.height / 2);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.minFilter = THREE.LinearFilter;
+            const material = new THREE.SpriteMaterial({ map: texture, transparent: true, blending: THREE.AdditiveBlending });
+            const sprite = new THREE.Sprite(material);
+            sprite.scale.set(32, 8, 1);
+            return sprite;
+        }
+
+        const phrasesGroup = new THREE.Group();
+        scene.add(phrasesGroup);
+        const orbitObjects = [];
+
+        frases.forEach((frase, i) => {
+            const sprite = createTextSprite(frase);
+            
+            const phi = Math.acos(-1 + (2 * i) / frases.length);
+            const theta = Math.sqrt(frases.length * Math.PI) * phi;
+            const radius = 60 + Math.random() * 90;
+            
+            sprite.position.x = radius * Math.cos(theta) * Math.sin(phi);
+            sprite.position.y = radius * Math.sin(theta) * Math.sin(phi);
+            sprite.position.z = radius * Math.cos(phi);
+            
+            sprite.userData = {
+                isPhrase: true,
+                baseScale: sprite.scale.clone(),
+                orbitSpeed: 0.001 + Math.random() * 0.002,
+                originalPos: sprite.position.clone()
+            };
+            
+            phrasesGroup.add(sprite);
+            orbitObjects.push(sprite);
+        });
+
+        const particlesGroup = new THREE.Group();
+        scene.add(particlesGroup);
+
+        function createExplosion(position, colorHex = 0xff00ff) {
+            const geo = new THREE.BufferGeometry();
+            const count = 200;
+            const pos = new Float32Array(count * 3);
+            const velocities = [];
+
+            for (let i = 0; i < count; i++) {
+                pos[i * 3] = position.x;
+                pos[i * 3 + 1] = position.y;
+                pos[i * 3 + 2] = position.z;
+                velocities.push({
+                    x: (Math.random() - 0.5) * 2,
+                    y: (Math.random() - 0.5) * 2,
+                    z: (Math.random() - 0.5) * 2
+                });
+            }
+
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            const mat = new THREE.PointsMaterial({ color: colorHex, size: 2, transparent: true, blending: THREE.AdditiveBlending });
+            const points = new THREE.Points(geo, mat);
+            
+            particlesGroup.add(points);
+
+            gsap.to(mat, {
+                opacity: 0,
+                duration: 2,
+                onUpdate: () => {
+                    const positions = points.geometry.attributes.position.array;
+                    for (let i = 0; i < count; i++) {
+                        positions[i * 3] += velocities[i].x;
+                        positions[i * 3 + 1] += velocities[i].y;
+                        positions[i * 3 + 2] += velocities[i].z;
+                    }
+                    points.geometry.attributes.position.needsUpdate = true;
+                },
+                onComplete: () => { particlesGroup.remove(points); }
+            });
+        }
+
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        window.addEventListener('pointerdown', (event) => {
+            if (!controls.enabled) return;
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const intersects = raycaster.intersectObjects([...heartGroup.children, ...phrasesGroup.children]);
+
+            if (intersects.length > 0) {
+                const object = intersects[0].object;
+
+                if (object.userData.isHeart) {
+                    gsap.to(heartGroup.scale, { x: 1.3, y: 1.3, z: 1.3, duration: 0.1, yoyo: true, repeat: 1 });
+                    createExplosion(heartGroup.position, 0x9900ff);
+                    
+                    gsap.to(camera.position, { x: 0, y: 0, z: 80, duration: 2, ease: "power2.out" });
+                    gsap.to(controls.target, { x: 0, y: 0, z: 0, duration: 2 });
+                } 
+                else if (object.userData.isPhrase) {
+                    const worldPos = new THREE.Vector3();
+                    object.getWorldPosition(worldPos);
+
+                    createExplosion(worldPos, 0x00ffff);
+                    
+                    gsap.to(object.scale, {
+                        x: object.userData.baseScale.x * 1.8,
+                        y: object.userData.baseScale.y * 1.8,
+                        duration: 0.5, yoyo: true, repeat: 1
+                    });
+
+                    const offset = worldPos.clone().normalize().multiplyScalar(40);
+                    const camPos = worldPos.clone().add(offset);
+
+                    gsap.to(camera.position, { x: camPos.x, y: camPos.y, z: camPos.z, duration: 2, ease: "power2.out" });
+                    gsap.to(controls.target, { x: worldPos.x, y: worldPos.y, z: worldPos.z, duration: 2 });
+                }
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // --- SISTEMA DE COMETAS ---
+        const cometsGroup = new THREE.Group();
+        scene.add(cometsGroup);
+
+        const cometData = [];
+        const cometCount = 6;
+
+        function resetComet(comet) {
+            const r = 400 + Math.random() * 200;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            
+            comet.position.set(
+                r * Math.sin(phi) * Math.cos(theta),
+                r * Math.sin(phi) * Math.sin(theta),
+                r * Math.cos(phi)
+            );
+        }
+
+        for (let i = 0; i < cometCount; i++) {
+            const cometGeo = new THREE.SphereGeometry(0.8, 8, 8);
+            const cometMat = new THREE.MeshBasicMaterial({
+                color: i % 2 === 0 ? 0x00ffff : 0xff88ff,
+                transparent: true,
+                opacity: 0.9
+            });
+            
+            const comet = new THREE.Mesh(cometGeo, cometMat);
+            resetComet(comet);
+            cometsGroup.add(comet);
+            
+            cometData.push({
+                mesh: comet,
+                speed: 1.5 + Math.random() * 2,
+                velocity: new THREE.Vector3(
+                    (Math.random() - 0.5) * 2,
+                    (Math.random() - 0.5) * 1,
+                    (Math.random() - 0.5) * 2
+                ).normalize()
+            });
+        }
+
+        function updateComets() {
+            cometData.forEach(item => {
+                item.mesh.position.addScaledVector(item.velocity, item.speed);
+                if (item.mesh.position.length() > 700) {
+                    resetComet(item.mesh);
+                }
+            });
+        }
+
+        // --- LOOP DE ANIMACIÓN ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+
+            controls.update();
+
+            galaxy.rotation.y = time * 0.05;
+            galaxy.rotation.x = time * 0.02;
+
+            const pulse = 1 + Math.sin(time * 3) * 0.03;
+            heartMesh.scale.set(pulse, pulse, pulse);
+            heartLight.intensity = 300 + Math.sin(time * 5) * 100;
+
+            phrasesGroup.rotation.y = time * 0.04;
+            phrasesGroup.rotation.z = Math.sin(time * 0.08) * 0.1;
+
+            orbitObjects.forEach((sprite, index) => {
+                sprite.position.y = sprite.userData.originalPos.y + Math.sin(time * 2 + index) * 2;
+            });
+
+            updateComets();
+
+            composer.render();
+        }
+
+        animate();
+
+        // --- LÓGICA DEL MENÚ INTERACTIVO ---
+        const menuToggle = document.getElementById('menu-toggle');
+        const phrasesMenu = document.getElementById('phrases-menu');
+        const closeMenu = document.getElementById('close-menu');
+        const phrasesList = document.getElementById('phrases-list');
+
+        menuToggle.addEventListener('click', () => {
+            phrasesMenu.classList.toggle('hidden');
+        });
+
+        closeMenu.addEventListener('click', () => {
+            phrasesMenu.classList.add('hidden');
+        });
+
+        frases.forEach((frase, index) => {
+            const item = document.createElement('div');
+            item.classList.add('phrase-item');
+            item.textContent = `${index + 1}. ${frase}`;
+            
+            item.addEventListener('click', () => {
+                const sprite = orbitObjects[index];
+                if (!sprite) return;
+
+                phrasesMenu.classList.add('hidden');
+
+                const worldPos = new THREE.Vector3();
+                sprite.getWorldPosition(worldPos);
+
+                createExplosion(worldPos, 0x00ffff);
+                
+                gsap.to(sprite.scale, {
+                    x: sprite.userData.baseScale.x * 1.8,
+                    y: sprite.userData.baseScale.y * 1.8,
+                    duration: 0.5, yoyo: true, repeat: 1
+                });
+
+                const offset = worldPos.clone().normalize().multiplyScalar(40);
+                const camPos = worldPos.clone().add(offset);
+
+                gsap.to(camera.position, { x: camPos.x, y: camPos.y, z: camPos.z, duration: 2, ease: "power2.out" });
+                gsap.to(controls.target, { x: worldPos.x, y: worldPos.y, z: worldPos.z, duration: 2 });
+            });
+
+            phrasesList.appendChild(item);
+        });
+    </script>
+</body>
+</html>
